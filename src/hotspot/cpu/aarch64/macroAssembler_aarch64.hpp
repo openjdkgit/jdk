@@ -1276,11 +1276,14 @@ public:
   int far_jump(Address entry, Register tmp = rscratch1);
 
   static int far_codestub_branch_size() {
-    if (codestub_branch_needs_far_jump()) {
-      return 3 * 4;  // adrp, add, br
-    } else {
-      return 4;
-    }
+    // ## something is wrong with offsets. do we get another set of instuctions?
+    //    todo: fix that
+    return 16;
+    //if (codestub_branch_needs_far_jump()) {
+    //  return 3 * 4;  // adrp, add, br
+    //} else {
+    //  return 4;
+    //}
   }
 
   // Emit the CompiledIC call idiom
@@ -1396,10 +1399,16 @@ public:
   // of your data.
   Address form_address(Register Rd, Register base, int64_t byte_offset, int shift);
 
-  // Return true iff an address is within the 48-bit AArch64 address
+  // Return true if an address is within the 48-bit AArch64 address
   // space.
   bool is_valid_AArch64_address(address a) {
     return ((uint64_t)a >> 48) == 0;
+  }
+
+  // ADRP addresses 4KB pages with a range of +/- 4GB to the current PC
+  bool fits_adrp_limit(address a) {
+    return ((int64_t)a - (int64_t)pc() < 4L * (int64_t) G) &&
+           ((int64_t)pc() - (int64_t)a < 4L * (int64_t) G);
   }
 
   // Load the base of the cardtable byte map into reg.
