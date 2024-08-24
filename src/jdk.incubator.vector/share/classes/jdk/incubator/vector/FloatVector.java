@@ -953,7 +953,7 @@ public abstract class FloatVector extends AbstractVector<Float> {
     // and broadcast, but it would be more surprising not to continue
     // the obvious pattern started by unary and binary.
 
-   /**
+    /**
      * {@inheritDoc} <!--workaround-->
      * @see #lanewise(VectorOperators.Ternary,float,float,VectorMask)
      * @see #lanewise(VectorOperators.Ternary,Vector,float,VectorMask)
@@ -2334,26 +2334,27 @@ public abstract class FloatVector extends AbstractVector<Float> {
     }
 
     @ForceInline
-    private final
-    VectorShuffle<Float> toShuffle0(FloatSpecies dsp) {
+    final <F>
+    VectorShuffle<F> toShuffle(AbstractSpecies<F> dsp, boolean wrap) {
+        IntVector idx = convert(VectorOperators.F2I, 0).reinterpretAsInts();
+        IntVector wrapped = idx.lanewise(VectorOperators.AND, length() - 1);
+        if (!wrap) {
+            IntVector wrappedEx = wrapped.lanewise(VectorOperators.SUB, length());
+            VectorMask<Integer> inBound = wrapped.compare(VectorOperators.EQ, idx);
+            wrapped = wrappedEx.blend(wrapped, inBound);
+        }
+        return wrapped.rawToShuffle(dsp);
+    }
+
+    @ForceInline
+    final <F>
+    VectorShuffle<F> toShuffle0(AbstractSpecies<F> dsp) {
         float[] a = toArray();
         int[] sa = new int[a.length];
         for (int i = 0; i < a.length; i++) {
             sa[i] = (int) a[i];
         }
         return VectorShuffle.fromArray(dsp, sa, 0);
-    }
-
-    /*package-private*/
-    @ForceInline
-    final
-    VectorShuffle<Float> toShuffleTemplate(Class<?> shuffleType) {
-        FloatSpecies vsp = vspecies();
-        return VectorSupport.convert(VectorSupport.VECTOR_OP_CAST,
-                                     getClass(), float.class, length(),
-                                     shuffleType, byte.class, length(),
-                                     this, vsp,
-                                     FloatVector::toShuffle0);
     }
 
     /**
@@ -3645,9 +3646,10 @@ public abstract class FloatVector extends AbstractVector<Float> {
         private FloatSpecies(VectorShape shape,
                 Class<? extends FloatVector> vectorType,
                 Class<? extends AbstractMask<Float>> maskType,
+                Class<? extends AbstractShuffle<Float>> shuffleType,
                 Function<Object, FloatVector> vectorFactory) {
             super(shape, LaneType.of(float.class),
-                  vectorType, maskType,
+                  vectorType, maskType, shuffleType,
                   vectorFactory);
             assert(this.elementSize() == Float.SIZE);
         }
@@ -3933,6 +3935,7 @@ public abstract class FloatVector extends AbstractVector<Float> {
         = new FloatSpecies(VectorShape.S_64_BIT,
                             Float64Vector.class,
                             Float64Vector.Float64Mask.class,
+                            Float64Vector.Float64Shuffle.class,
                             Float64Vector::new);
 
     /** Species representing {@link FloatVector}s of {@link VectorShape#S_128_BIT VectorShape.S_128_BIT}. */
@@ -3940,6 +3943,7 @@ public abstract class FloatVector extends AbstractVector<Float> {
         = new FloatSpecies(VectorShape.S_128_BIT,
                             Float128Vector.class,
                             Float128Vector.Float128Mask.class,
+                            Float128Vector.Float128Shuffle.class,
                             Float128Vector::new);
 
     /** Species representing {@link FloatVector}s of {@link VectorShape#S_256_BIT VectorShape.S_256_BIT}. */
@@ -3947,6 +3951,7 @@ public abstract class FloatVector extends AbstractVector<Float> {
         = new FloatSpecies(VectorShape.S_256_BIT,
                             Float256Vector.class,
                             Float256Vector.Float256Mask.class,
+                            Float256Vector.Float256Shuffle.class,
                             Float256Vector::new);
 
     /** Species representing {@link FloatVector}s of {@link VectorShape#S_512_BIT VectorShape.S_512_BIT}. */
@@ -3954,6 +3959,7 @@ public abstract class FloatVector extends AbstractVector<Float> {
         = new FloatSpecies(VectorShape.S_512_BIT,
                             Float512Vector.class,
                             Float512Vector.Float512Mask.class,
+                            Float512Vector.Float512Shuffle.class,
                             Float512Vector::new);
 
     /** Species representing {@link FloatVector}s of {@link VectorShape#S_Max_BIT VectorShape.S_Max_BIT}. */
@@ -3961,6 +3967,7 @@ public abstract class FloatVector extends AbstractVector<Float> {
         = new FloatSpecies(VectorShape.S_Max_BIT,
                             FloatMaxVector.class,
                             FloatMaxVector.FloatMaxMask.class,
+                            FloatMaxVector.FloatMaxShuffle.class,
                             FloatMaxVector::new);
 
     /**
