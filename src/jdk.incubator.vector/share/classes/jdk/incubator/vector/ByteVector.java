@@ -2479,9 +2479,21 @@ public abstract class ByteVector extends AbstractVector<Byte> {
         return r1.blend(r0, valid);
     }
 
+    @Override
+    @ForceInline
+    final <F> VectorShuffle<F> bitsToShuffle0(AbstractSpecies<F> dsp) {
+        byte[] a = toArray();
+        int[] sa = new int[a.length];
+        for (int i = 0; i < a.length; i++) {
+            sa[i] = (int) a[i];
+        }
+        return VectorShuffle.fromArray(dsp, sa, 0);
+    }
+
     @ForceInline
     final <F>
     VectorShuffle<F> toShuffle(AbstractSpecies<F> dsp, boolean wrap) {
+        assert(dsp.elementSize() == vspecies().elementSize());
         ByteVector idx = this;
         ByteVector wrapped = idx.lanewise(VectorOperators.AND, length() - 1);
         if (!wrap) {
@@ -2489,18 +2501,7 @@ public abstract class ByteVector extends AbstractVector<Byte> {
             VectorMask<Byte> inBound = wrapped.compare(VectorOperators.EQ, idx);
             wrapped = wrappedEx.blend(wrapped, inBound);
         }
-        return wrapped.rawToShuffle(dsp);
-    }
-
-    @ForceInline
-    final <F>
-    VectorShuffle<F> toShuffle0(AbstractSpecies<F> dsp) {
-        byte[] a = toArray();
-        int[] sa = new int[a.length];
-        for (int i = 0; i < a.length; i++) {
-            sa[i] = (int) a[i];
-        }
-        return VectorShuffle.fromArray(dsp, sa, 0);
+        return wrapped.bitsToShuffle(dsp);
     }
 
     /**

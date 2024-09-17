@@ -2464,9 +2464,21 @@ public abstract class IntVector extends AbstractVector<Integer> {
         return r1.blend(r0, valid);
     }
 
+    @Override
+    @ForceInline
+    final <F> VectorShuffle<F> bitsToShuffle0(AbstractSpecies<F> dsp) {
+        int[] a = toArray();
+        int[] sa = new int[a.length];
+        for (int i = 0; i < a.length; i++) {
+            sa[i] = (int) a[i];
+        }
+        return VectorShuffle.fromArray(dsp, sa, 0);
+    }
+
     @ForceInline
     final <F>
     VectorShuffle<F> toShuffle(AbstractSpecies<F> dsp, boolean wrap) {
+        assert(dsp.elementSize() == vspecies().elementSize());
         IntVector idx = this;
         IntVector wrapped = idx.lanewise(VectorOperators.AND, length() - 1);
         if (!wrap) {
@@ -2474,18 +2486,7 @@ public abstract class IntVector extends AbstractVector<Integer> {
             VectorMask<Integer> inBound = wrapped.compare(VectorOperators.EQ, idx);
             wrapped = wrappedEx.blend(wrapped, inBound);
         }
-        return wrapped.rawToShuffle(dsp);
-    }
-
-    @ForceInline
-    final <F>
-    VectorShuffle<F> toShuffle0(AbstractSpecies<F> dsp) {
-        int[] a = toArray();
-        int[] sa = new int[a.length];
-        for (int i = 0; i < a.length; i++) {
-            sa[i] = (int) a[i];
-        }
-        return VectorShuffle.fromArray(dsp, sa, 0);
+        return wrapped.bitsToShuffle(dsp);
     }
 
     /**

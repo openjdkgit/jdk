@@ -143,6 +143,12 @@ final class Double64Vector extends DoubleVector {
 
     @Override
     @ForceInline
+    Double64Shuffle iotaShuffle(int start, int step, boolean wrap) {
+        return (Double64Shuffle) iotaShuffleTemplate(start, step, wrap);
+    }
+
+    @Override
+    @ForceInline
     Double64Shuffle shuffleFromArray(int[] indices, int i) { return new Double64Shuffle(indices, i); }
 
     @Override
@@ -331,9 +337,14 @@ final class Double64Vector extends DoubleVector {
 
     @Override
     @ForceInline
-    final <F>
-    VectorShuffle<F> rawToShuffle(AbstractSpecies<F> dsp) {
-        return super.rawToShuffleTemplate(dsp);
+    final <F> VectorShuffle<F> bitsToShuffle(AbstractSpecies<F> dsp) {
+        throw new AssertionError();
+    }
+
+    @Override
+    @ForceInline
+    public final Double64Shuffle toShuffle() {
+        return (Double64Shuffle) toShuffle(vspecies(), false);
     }
 
     // Specialized unary testing
@@ -794,14 +805,19 @@ final class Double64Vector extends DoubleVector {
 
         @Override
         @ForceInline
+        public Double64Vector toVector() {
+            return (Double64Vector) toBitsVector().castShape(vspecies(), 0);
+        }
+
+        @Override
+        @ForceInline
         Long64Vector toBitsVector() {
             return (Long64Vector) super.toBitsVectorTemplate();
         }
 
         @Override
-        @ForceInline
-        LongVector toBitsVector0() {
-            return Long64Vector.VSPECIES.dummyVector().vectorFactory(indices());
+        Long64Vector toBitsVector0() {
+            return ((Long64Vector) vspecies().asIntegral().dummyVector()).vectorFactory(indices());
         }
 
         @Override
@@ -838,6 +854,34 @@ final class Double64Vector extends DoubleVector {
                     }
                 }
             }
+        }
+
+        @Override
+        @ForceInline
+        public final Double64Mask laneIsValid() {
+            return (Double64Mask) toBitsVector().compare(VectorOperators.GE, 0)
+                    .cast(vspecies());
+        }
+
+        @ForceInline
+        @Override
+        public final Double64Shuffle rearrange(VectorShuffle<Double> shuffle) {
+            return (Double64Shuffle) toBitsVector().rearrange(((Double64Shuffle) shuffle)
+                    .cast(LongVector.SPECIES_64))
+                    .toShuffle(vspecies(), false);
+        }
+
+        @ForceInline
+        @Override
+        public final Double64Shuffle wrapIndexes() {
+            Long64Vector v = toBitsVector();
+            if ((length() & (length() - 1)) == 0) {
+                v = (Long64Vector) v.lanewise(VectorOperators.AND, length() - 1);
+            } else {
+                v = (Long64Vector) v.blend(v.lanewise(VectorOperators.ADD, length()),
+                            v.compare(VectorOperators.LT, 0));
+            }
+            return (Double64Shuffle) v.toShuffle(vspecies(), false);
         }
 
         private static long[] prepare(int[] indices, int offset) {

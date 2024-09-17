@@ -2333,9 +2333,16 @@ public abstract class FloatVector extends AbstractVector<Float> {
         return r1.blend(r0, valid);
     }
 
+    @Override
+    @ForceInline
+    final <F> VectorShuffle<F> bitsToShuffle0(AbstractSpecies<F> dsp) {
+        throw new AssertionError();
+    }
+
     @ForceInline
     final <F>
     VectorShuffle<F> toShuffle(AbstractSpecies<F> dsp, boolean wrap) {
+        assert(dsp.elementSize() == vspecies().elementSize());
         IntVector idx = convert(VectorOperators.F2I, 0).reinterpretAsInts();
         IntVector wrapped = idx.lanewise(VectorOperators.AND, length() - 1);
         if (!wrap) {
@@ -2343,18 +2350,7 @@ public abstract class FloatVector extends AbstractVector<Float> {
             VectorMask<Integer> inBound = wrapped.compare(VectorOperators.EQ, idx);
             wrapped = wrappedEx.blend(wrapped, inBound);
         }
-        return wrapped.rawToShuffle(dsp);
-    }
-
-    @ForceInline
-    final <F>
-    VectorShuffle<F> toShuffle0(AbstractSpecies<F> dsp) {
-        float[] a = toArray();
-        int[] sa = new int[a.length];
-        for (int i = 0; i < a.length; i++) {
-            sa[i] = (int) a[i];
-        }
-        return VectorShuffle.fromArray(dsp, sa, 0);
+        return wrapped.bitsToShuffle(dsp);
     }
 
     /**

@@ -138,6 +138,12 @@ final class Long64Vector extends LongVector {
 
     @Override
     @ForceInline
+    Long64Shuffle iotaShuffle(int start, int step, boolean wrap) {
+        return (Long64Shuffle) iotaShuffleTemplate(start, step, wrap);
+    }
+
+    @Override
+    @ForceInline
     Long64Shuffle shuffleFromArray(int[] indices, int i) { return new Long64Shuffle(indices, i); }
 
     @Override
@@ -339,9 +345,14 @@ final class Long64Vector extends LongVector {
 
     @Override
     @ForceInline
-    final <F>
-    VectorShuffle<F> rawToShuffle(AbstractSpecies<F> dsp) {
-        return super.rawToShuffleTemplate(dsp);
+    final <F> VectorShuffle<F> bitsToShuffle(AbstractSpecies<F> dsp) {
+        return bitsToShuffleTemplate(dsp);
+    }
+
+    @Override
+    @ForceInline
+    public final Long64Shuffle toShuffle() {
+        return (Long64Shuffle) toShuffle(vspecies(), false);
     }
 
     // Specialized unary testing
@@ -795,14 +806,19 @@ final class Long64Vector extends LongVector {
 
         @Override
         @ForceInline
+        public Long64Vector toVector() {
+            return toBitsVector();
+        }
+
+        @Override
+        @ForceInline
         Long64Vector toBitsVector() {
             return (Long64Vector) super.toBitsVectorTemplate();
         }
 
         @Override
-        @ForceInline
-        LongVector toBitsVector0() {
-            return Long64Vector.VSPECIES.dummyVector().vectorFactory(indices());
+        Long64Vector toBitsVector0() {
+            return ((Long64Vector) vspecies().asIntegral().dummyVector()).vectorFactory(indices());
         }
 
         @Override
@@ -839,6 +855,34 @@ final class Long64Vector extends LongVector {
                     }
                 }
             }
+        }
+
+        @Override
+        @ForceInline
+        public final Long64Mask laneIsValid() {
+            return (Long64Mask) toBitsVector().compare(VectorOperators.GE, 0)
+                    .cast(vspecies());
+        }
+
+        @ForceInline
+        @Override
+        public final Long64Shuffle rearrange(VectorShuffle<Long> shuffle) {
+            return (Long64Shuffle) toBitsVector().rearrange(((Long64Shuffle) shuffle)
+                    .cast(LongVector.SPECIES_64))
+                    .toShuffle(vspecies(), false);
+        }
+
+        @ForceInline
+        @Override
+        public final Long64Shuffle wrapIndexes() {
+            Long64Vector v = toBitsVector();
+            if ((length() & (length() - 1)) == 0) {
+                v = (Long64Vector) v.lanewise(VectorOperators.AND, length() - 1);
+            } else {
+                v = (Long64Vector) v.blend(v.lanewise(VectorOperators.ADD, length()),
+                            v.compare(VectorOperators.LT, 0));
+            }
+            return (Long64Shuffle) v.toShuffle(vspecies(), false);
         }
 
         private static long[] prepare(int[] indices, int offset) {

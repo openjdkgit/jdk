@@ -143,6 +143,12 @@ final class ShortMaxVector extends ShortVector {
 
     @Override
     @ForceInline
+    ShortMaxShuffle iotaShuffle(int start, int step, boolean wrap) {
+        return (ShortMaxShuffle) iotaShuffleTemplate((short) start, (short) step, wrap);
+    }
+
+    @Override
+    @ForceInline
     ShortMaxShuffle shuffleFromArray(int[] indices, int i) { return new ShortMaxShuffle(indices, i); }
 
     @Override
@@ -344,9 +350,14 @@ final class ShortMaxVector extends ShortVector {
 
     @Override
     @ForceInline
-    final <F>
-    VectorShuffle<F> rawToShuffle(AbstractSpecies<F> dsp) {
-        return super.rawToShuffleTemplate(dsp);
+    final <F> VectorShuffle<F> bitsToShuffle(AbstractSpecies<F> dsp) {
+        return bitsToShuffleTemplate(dsp);
+    }
+
+    @Override
+    @ForceInline
+    public final ShortMaxShuffle toShuffle() {
+        return (ShortMaxShuffle) toShuffle(vspecies(), false);
     }
 
     // Specialized unary testing
@@ -805,14 +816,19 @@ final class ShortMaxVector extends ShortVector {
 
         @Override
         @ForceInline
+        public ShortMaxVector toVector() {
+            return toBitsVector();
+        }
+
+        @Override
+        @ForceInline
         ShortMaxVector toBitsVector() {
             return (ShortMaxVector) super.toBitsVectorTemplate();
         }
 
         @Override
-        @ForceInline
-        ShortVector toBitsVector0() {
-            return ShortMaxVector.VSPECIES.dummyVector().vectorFactory(indices());
+        ShortMaxVector toBitsVector0() {
+            return ((ShortMaxVector) vspecies().asIntegral().dummyVector()).vectorFactory(indices());
         }
 
         @Override
@@ -832,6 +848,34 @@ final class ShortMaxVector extends ShortVector {
             v.convertShape(VectorOperators.S2I, species, 1)
                     .reinterpretAsInts()
                     .intoArray(a, offset + species.length());
+        }
+
+        @Override
+        @ForceInline
+        public final ShortMaxMask laneIsValid() {
+            return (ShortMaxMask) toBitsVector().compare(VectorOperators.GE, 0)
+                    .cast(vspecies());
+        }
+
+        @ForceInline
+        @Override
+        public final ShortMaxShuffle rearrange(VectorShuffle<Short> shuffle) {
+            return (ShortMaxShuffle) toBitsVector().rearrange(((ShortMaxShuffle) shuffle)
+                    .cast(ShortVector.SPECIES_MAX))
+                    .toShuffle(vspecies(), false);
+        }
+
+        @ForceInline
+        @Override
+        public final ShortMaxShuffle wrapIndexes() {
+            ShortMaxVector v = toBitsVector();
+            if ((length() & (length() - 1)) == 0) {
+                v = (ShortMaxVector) v.lanewise(VectorOperators.AND, length() - 1);
+            } else {
+                v = (ShortMaxVector) v.blend(v.lanewise(VectorOperators.ADD, length()),
+                            v.compare(VectorOperators.LT, 0));
+            }
+            return (ShortMaxShuffle) v.toShuffle(vspecies(), false);
         }
 
         private static short[] prepare(int[] indices, int offset) {

@@ -143,6 +143,12 @@ final class Short64Vector extends ShortVector {
 
     @Override
     @ForceInline
+    Short64Shuffle iotaShuffle(int start, int step, boolean wrap) {
+        return (Short64Shuffle) iotaShuffleTemplate((short) start, (short) step, wrap);
+    }
+
+    @Override
+    @ForceInline
     Short64Shuffle shuffleFromArray(int[] indices, int i) { return new Short64Shuffle(indices, i); }
 
     @Override
@@ -344,9 +350,14 @@ final class Short64Vector extends ShortVector {
 
     @Override
     @ForceInline
-    final <F>
-    VectorShuffle<F> rawToShuffle(AbstractSpecies<F> dsp) {
-        return super.rawToShuffleTemplate(dsp);
+    final <F> VectorShuffle<F> bitsToShuffle(AbstractSpecies<F> dsp) {
+        return bitsToShuffleTemplate(dsp);
+    }
+
+    @Override
+    @ForceInline
+    public final Short64Shuffle toShuffle() {
+        return (Short64Shuffle) toShuffle(vspecies(), false);
     }
 
     // Specialized unary testing
@@ -811,14 +822,19 @@ final class Short64Vector extends ShortVector {
 
         @Override
         @ForceInline
+        public Short64Vector toVector() {
+            return toBitsVector();
+        }
+
+        @Override
+        @ForceInline
         Short64Vector toBitsVector() {
             return (Short64Vector) super.toBitsVectorTemplate();
         }
 
         @Override
-        @ForceInline
-        ShortVector toBitsVector0() {
-            return Short64Vector.VSPECIES.dummyVector().vectorFactory(indices());
+        Short64Vector toBitsVector0() {
+            return ((Short64Vector) vspecies().asIntegral().dummyVector()).vectorFactory(indices());
         }
 
         @Override
@@ -838,6 +854,34 @@ final class Short64Vector extends ShortVector {
             v.convertShape(VectorOperators.S2I, species, 1)
                     .reinterpretAsInts()
                     .intoArray(a, offset + species.length());
+        }
+
+        @Override
+        @ForceInline
+        public final Short64Mask laneIsValid() {
+            return (Short64Mask) toBitsVector().compare(VectorOperators.GE, 0)
+                    .cast(vspecies());
+        }
+
+        @ForceInline
+        @Override
+        public final Short64Shuffle rearrange(VectorShuffle<Short> shuffle) {
+            return (Short64Shuffle) toBitsVector().rearrange(((Short64Shuffle) shuffle)
+                    .cast(ShortVector.SPECIES_64))
+                    .toShuffle(vspecies(), false);
+        }
+
+        @ForceInline
+        @Override
+        public final Short64Shuffle wrapIndexes() {
+            Short64Vector v = toBitsVector();
+            if ((length() & (length() - 1)) == 0) {
+                v = (Short64Vector) v.lanewise(VectorOperators.AND, length() - 1);
+            } else {
+                v = (Short64Vector) v.blend(v.lanewise(VectorOperators.ADD, length()),
+                            v.compare(VectorOperators.LT, 0));
+            }
+            return (Short64Shuffle) v.toShuffle(vspecies(), false);
         }
 
         private static short[] prepare(int[] indices, int offset) {

@@ -143,6 +143,12 @@ final class Float512Vector extends FloatVector {
 
     @Override
     @ForceInline
+    Float512Shuffle iotaShuffle(int start, int step, boolean wrap) {
+        return (Float512Shuffle) iotaShuffleTemplate(start, step, wrap);
+    }
+
+    @Override
+    @ForceInline
     Float512Shuffle shuffleFromArray(int[] indices, int i) { return new Float512Shuffle(indices, i); }
 
     @Override
@@ -331,9 +337,14 @@ final class Float512Vector extends FloatVector {
 
     @Override
     @ForceInline
-    final <F>
-    VectorShuffle<F> rawToShuffle(AbstractSpecies<F> dsp) {
-        return super.rawToShuffleTemplate(dsp);
+    final <F> VectorShuffle<F> bitsToShuffle(AbstractSpecies<F> dsp) {
+        throw new AssertionError();
+    }
+
+    @Override
+    @ForceInline
+    public final Float512Shuffle toShuffle() {
+        return (Float512Shuffle) toShuffle(vspecies(), false);
     }
 
     // Specialized unary testing
@@ -824,14 +835,19 @@ final class Float512Vector extends FloatVector {
 
         @Override
         @ForceInline
+        public Float512Vector toVector() {
+            return (Float512Vector) toBitsVector().castShape(vspecies(), 0);
+        }
+
+        @Override
+        @ForceInline
         Int512Vector toBitsVector() {
             return (Int512Vector) super.toBitsVectorTemplate();
         }
 
         @Override
-        @ForceInline
-        IntVector toBitsVector0() {
-            return Int512Vector.VSPECIES.dummyVector().vectorFactory(indices());
+        Int512Vector toBitsVector0() {
+            return ((Int512Vector) vspecies().asIntegral().dummyVector()).vectorFactory(indices());
         }
 
         @Override
@@ -844,6 +860,34 @@ final class Float512Vector extends FloatVector {
         @ForceInline
         public void intoArray(int[] a, int offset) {
             toBitsVector().intoArray(a, offset);
+        }
+
+        @Override
+        @ForceInline
+        public final Float512Mask laneIsValid() {
+            return (Float512Mask) toBitsVector().compare(VectorOperators.GE, 0)
+                    .cast(vspecies());
+        }
+
+        @ForceInline
+        @Override
+        public final Float512Shuffle rearrange(VectorShuffle<Float> shuffle) {
+            return (Float512Shuffle) toBitsVector().rearrange(((Float512Shuffle) shuffle)
+                    .cast(IntVector.SPECIES_512))
+                    .toShuffle(vspecies(), false);
+        }
+
+        @ForceInline
+        @Override
+        public final Float512Shuffle wrapIndexes() {
+            Int512Vector v = toBitsVector();
+            if ((length() & (length() - 1)) == 0) {
+                v = (Int512Vector) v.lanewise(VectorOperators.AND, length() - 1);
+            } else {
+                v = (Int512Vector) v.blend(v.lanewise(VectorOperators.ADD, length()),
+                            v.compare(VectorOperators.LT, 0));
+            }
+            return (Float512Shuffle) v.toShuffle(vspecies(), false);
         }
 
         private static int[] prepare(int[] indices, int offset) {

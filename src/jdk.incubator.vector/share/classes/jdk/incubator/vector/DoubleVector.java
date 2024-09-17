@@ -2321,9 +2321,16 @@ public abstract class DoubleVector extends AbstractVector<Double> {
         return r1.blend(r0, valid);
     }
 
+    @Override
+    @ForceInline
+    final <F> VectorShuffle<F> bitsToShuffle0(AbstractSpecies<F> dsp) {
+        throw new AssertionError();
+    }
+
     @ForceInline
     final <F>
     VectorShuffle<F> toShuffle(AbstractSpecies<F> dsp, boolean wrap) {
+        assert(dsp.elementSize() == vspecies().elementSize());
         LongVector idx = convert(VectorOperators.D2L, 0).reinterpretAsLongs();
         LongVector wrapped = idx.lanewise(VectorOperators.AND, length() - 1);
         if (!wrap) {
@@ -2331,18 +2338,7 @@ public abstract class DoubleVector extends AbstractVector<Double> {
             VectorMask<Long> inBound = wrapped.compare(VectorOperators.EQ, idx);
             wrapped = wrappedEx.blend(wrapped, inBound);
         }
-        return wrapped.rawToShuffle(dsp);
-    }
-
-    @ForceInline
-    final <F>
-    VectorShuffle<F> toShuffle0(AbstractSpecies<F> dsp) {
-        double[] a = toArray();
-        int[] sa = new int[a.length];
-        for (int i = 0; i < a.length; i++) {
-            sa[i] = (int) a[i];
-        }
-        return VectorShuffle.fromArray(dsp, sa, 0);
+        return wrapped.bitsToShuffle(dsp);
     }
 
     /**

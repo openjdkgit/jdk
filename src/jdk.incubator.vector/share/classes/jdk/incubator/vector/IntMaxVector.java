@@ -143,6 +143,12 @@ final class IntMaxVector extends IntVector {
 
     @Override
     @ForceInline
+    IntMaxShuffle iotaShuffle(int start, int step, boolean wrap) {
+        return (IntMaxShuffle) iotaShuffleTemplate(start, step, wrap);
+    }
+
+    @Override
+    @ForceInline
     IntMaxShuffle shuffleFromArray(int[] indices, int i) { return new IntMaxShuffle(indices, i); }
 
     @Override
@@ -344,9 +350,14 @@ final class IntMaxVector extends IntVector {
 
     @Override
     @ForceInline
-    final <F>
-    VectorShuffle<F> rawToShuffle(AbstractSpecies<F> dsp) {
-        return super.rawToShuffleTemplate(dsp);
+    final <F> VectorShuffle<F> bitsToShuffle(AbstractSpecies<F> dsp) {
+        return bitsToShuffleTemplate(dsp);
+    }
+
+    @Override
+    @ForceInline
+    public final IntMaxShuffle toShuffle() {
+        return (IntMaxShuffle) toShuffle(vspecies(), false);
     }
 
     // Specialized unary testing
@@ -816,14 +827,19 @@ final class IntMaxVector extends IntVector {
 
         @Override
         @ForceInline
+        public IntMaxVector toVector() {
+            return toBitsVector();
+        }
+
+        @Override
+        @ForceInline
         IntMaxVector toBitsVector() {
             return (IntMaxVector) super.toBitsVectorTemplate();
         }
 
         @Override
-        @ForceInline
-        IntVector toBitsVector0() {
-            return IntMaxVector.VSPECIES.dummyVector().vectorFactory(indices());
+        IntMaxVector toBitsVector0() {
+            return ((IntMaxVector) vspecies().asIntegral().dummyVector()).vectorFactory(indices());
         }
 
         @Override
@@ -836,6 +852,34 @@ final class IntMaxVector extends IntVector {
         @ForceInline
         public void intoArray(int[] a, int offset) {
             toBitsVector().intoArray(a, offset);
+        }
+
+        @Override
+        @ForceInline
+        public final IntMaxMask laneIsValid() {
+            return (IntMaxMask) toBitsVector().compare(VectorOperators.GE, 0)
+                    .cast(vspecies());
+        }
+
+        @ForceInline
+        @Override
+        public final IntMaxShuffle rearrange(VectorShuffle<Integer> shuffle) {
+            return (IntMaxShuffle) toBitsVector().rearrange(((IntMaxShuffle) shuffle)
+                    .cast(IntVector.SPECIES_MAX))
+                    .toShuffle(vspecies(), false);
+        }
+
+        @ForceInline
+        @Override
+        public final IntMaxShuffle wrapIndexes() {
+            IntMaxVector v = toBitsVector();
+            if ((length() & (length() - 1)) == 0) {
+                v = (IntMaxVector) v.lanewise(VectorOperators.AND, length() - 1);
+            } else {
+                v = (IntMaxVector) v.blend(v.lanewise(VectorOperators.ADD, length()),
+                            v.compare(VectorOperators.LT, 0));
+            }
+            return (IntMaxShuffle) v.toShuffle(vspecies(), false);
         }
 
         private static int[] prepare(int[] indices, int offset) {

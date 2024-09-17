@@ -143,6 +143,12 @@ final class Double128Vector extends DoubleVector {
 
     @Override
     @ForceInline
+    Double128Shuffle iotaShuffle(int start, int step, boolean wrap) {
+        return (Double128Shuffle) iotaShuffleTemplate(start, step, wrap);
+    }
+
+    @Override
+    @ForceInline
     Double128Shuffle shuffleFromArray(int[] indices, int i) { return new Double128Shuffle(indices, i); }
 
     @Override
@@ -331,9 +337,14 @@ final class Double128Vector extends DoubleVector {
 
     @Override
     @ForceInline
-    final <F>
-    VectorShuffle<F> rawToShuffle(AbstractSpecies<F> dsp) {
-        return super.rawToShuffleTemplate(dsp);
+    final <F> VectorShuffle<F> bitsToShuffle(AbstractSpecies<F> dsp) {
+        throw new AssertionError();
+    }
+
+    @Override
+    @ForceInline
+    public final Double128Shuffle toShuffle() {
+        return (Double128Shuffle) toShuffle(vspecies(), false);
     }
 
     // Specialized unary testing
@@ -796,14 +807,19 @@ final class Double128Vector extends DoubleVector {
 
         @Override
         @ForceInline
+        public Double128Vector toVector() {
+            return (Double128Vector) toBitsVector().castShape(vspecies(), 0);
+        }
+
+        @Override
+        @ForceInline
         Long128Vector toBitsVector() {
             return (Long128Vector) super.toBitsVectorTemplate();
         }
 
         @Override
-        @ForceInline
-        LongVector toBitsVector0() {
-            return Long128Vector.VSPECIES.dummyVector().vectorFactory(indices());
+        Long128Vector toBitsVector0() {
+            return ((Long128Vector) vspecies().asIntegral().dummyVector()).vectorFactory(indices());
         }
 
         @Override
@@ -840,6 +856,34 @@ final class Double128Vector extends DoubleVector {
                     }
                 }
             }
+        }
+
+        @Override
+        @ForceInline
+        public final Double128Mask laneIsValid() {
+            return (Double128Mask) toBitsVector().compare(VectorOperators.GE, 0)
+                    .cast(vspecies());
+        }
+
+        @ForceInline
+        @Override
+        public final Double128Shuffle rearrange(VectorShuffle<Double> shuffle) {
+            return (Double128Shuffle) toBitsVector().rearrange(((Double128Shuffle) shuffle)
+                    .cast(LongVector.SPECIES_128))
+                    .toShuffle(vspecies(), false);
+        }
+
+        @ForceInline
+        @Override
+        public final Double128Shuffle wrapIndexes() {
+            Long128Vector v = toBitsVector();
+            if ((length() & (length() - 1)) == 0) {
+                v = (Long128Vector) v.lanewise(VectorOperators.AND, length() - 1);
+            } else {
+                v = (Long128Vector) v.blend(v.lanewise(VectorOperators.ADD, length()),
+                            v.compare(VectorOperators.LT, 0));
+            }
+            return (Double128Shuffle) v.toShuffle(vspecies(), false);
         }
 
         private static long[] prepare(int[] indices, int offset) {

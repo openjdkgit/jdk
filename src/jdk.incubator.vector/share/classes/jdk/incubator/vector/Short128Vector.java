@@ -143,6 +143,12 @@ final class Short128Vector extends ShortVector {
 
     @Override
     @ForceInline
+    Short128Shuffle iotaShuffle(int start, int step, boolean wrap) {
+        return (Short128Shuffle) iotaShuffleTemplate((short) start, (short) step, wrap);
+    }
+
+    @Override
+    @ForceInline
     Short128Shuffle shuffleFromArray(int[] indices, int i) { return new Short128Shuffle(indices, i); }
 
     @Override
@@ -344,9 +350,14 @@ final class Short128Vector extends ShortVector {
 
     @Override
     @ForceInline
-    final <F>
-    VectorShuffle<F> rawToShuffle(AbstractSpecies<F> dsp) {
-        return super.rawToShuffleTemplate(dsp);
+    final <F> VectorShuffle<F> bitsToShuffle(AbstractSpecies<F> dsp) {
+        return bitsToShuffleTemplate(dsp);
+    }
+
+    @Override
+    @ForceInline
+    public final Short128Shuffle toShuffle() {
+        return (Short128Shuffle) toShuffle(vspecies(), false);
     }
 
     // Specialized unary testing
@@ -819,14 +830,19 @@ final class Short128Vector extends ShortVector {
 
         @Override
         @ForceInline
+        public Short128Vector toVector() {
+            return toBitsVector();
+        }
+
+        @Override
+        @ForceInline
         Short128Vector toBitsVector() {
             return (Short128Vector) super.toBitsVectorTemplate();
         }
 
         @Override
-        @ForceInline
-        ShortVector toBitsVector0() {
-            return Short128Vector.VSPECIES.dummyVector().vectorFactory(indices());
+        Short128Vector toBitsVector0() {
+            return ((Short128Vector) vspecies().asIntegral().dummyVector()).vectorFactory(indices());
         }
 
         @Override
@@ -846,6 +862,34 @@ final class Short128Vector extends ShortVector {
             v.convertShape(VectorOperators.S2I, species, 1)
                     .reinterpretAsInts()
                     .intoArray(a, offset + species.length());
+        }
+
+        @Override
+        @ForceInline
+        public final Short128Mask laneIsValid() {
+            return (Short128Mask) toBitsVector().compare(VectorOperators.GE, 0)
+                    .cast(vspecies());
+        }
+
+        @ForceInline
+        @Override
+        public final Short128Shuffle rearrange(VectorShuffle<Short> shuffle) {
+            return (Short128Shuffle) toBitsVector().rearrange(((Short128Shuffle) shuffle)
+                    .cast(ShortVector.SPECIES_128))
+                    .toShuffle(vspecies(), false);
+        }
+
+        @ForceInline
+        @Override
+        public final Short128Shuffle wrapIndexes() {
+            Short128Vector v = toBitsVector();
+            if ((length() & (length() - 1)) == 0) {
+                v = (Short128Vector) v.lanewise(VectorOperators.AND, length() - 1);
+            } else {
+                v = (Short128Vector) v.blend(v.lanewise(VectorOperators.ADD, length()),
+                            v.compare(VectorOperators.LT, 0));
+            }
+            return (Short128Shuffle) v.toShuffle(vspecies(), false);
         }
 
         private static short[] prepare(int[] indices, int offset) {

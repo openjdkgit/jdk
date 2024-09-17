@@ -145,6 +145,20 @@ final class $vectortype$ extends $abstractvectortype$ {
 
     @Override
     @ForceInline
+    $shuffletype$ iotaShuffle(int start, int step, boolean wrap) {
+#if[byte]
+        return ($shuffletype$) iotaShuffleTemplate((byte) start, (byte) step, wrap);
+#end[byte]
+#if[short]
+        return ($shuffletype$) iotaShuffleTemplate((short) start, (short) step, wrap);
+#end[short]
+#if[!byteOrShort]
+        return ($shuffletype$) iotaShuffleTemplate(start, step, wrap);
+#end[!byteOrShort]
+    }
+
+    @Override
+    @ForceInline
     $shuffletype$ shuffleFromArray(int[] indices, int i) { return new $shuffletype$(indices, i); }
 
     @Override
@@ -348,9 +362,18 @@ final class $vectortype$ extends $abstractvectortype$ {
 
     @Override
     @ForceInline
-    final <F>
-    VectorShuffle<F> rawToShuffle(AbstractSpecies<F> dsp) {
-        return super.rawToShuffleTemplate(dsp);
+    final <F> VectorShuffle<F> bitsToShuffle(AbstractSpecies<F> dsp) {
+#if[FP]
+        throw new AssertionError();
+#else[FP]
+        return bitsToShuffleTemplate(dsp);
+#end[FP]
+    }
+
+    @Override
+    @ForceInline
+    public final $shuffletype$ toShuffle() {
+        return ($shuffletype$) toShuffle(vspecies(), false);
     }
 
     // Specialized unary testing
@@ -1091,6 +1114,20 @@ final class $vectortype$ extends $abstractvectortype$ {
         }
         static final $shuffletype$ IOTA = new $shuffletype$(IDENTITY);
 
+#if[FP]
+        @Override
+        @ForceInline
+        public $vectortype$ toVector() {
+            return ($vectortype$) toBitsVector().castShape(vspecies(), 0);
+        }
+#else[FP]
+        @Override
+        @ForceInline
+        public $vectortype$ toVector() {
+            return toBitsVector();
+        }
+#end[FP]
+
         @Override
         @ForceInline
         $bitsvectortype$ toBitsVector() {
@@ -1098,9 +1135,8 @@ final class $vectortype$ extends $abstractvectortype$ {
         }
 
         @Override
-        @ForceInline
-        $Bitstype$Vector toBitsVector0() {
-            return $bitsvectortype$.VSPECIES.dummyVector().vectorFactory(indices());
+        $bitsvectortype$ toBitsVector0() {
+            return (($bitsvectortype$) vspecies().asIntegral().dummyVector()).vectorFactory(indices());
         }
 
         @Override
@@ -1168,6 +1204,34 @@ final class $vectortype$ extends $abstractvectortype$ {
                 }
             }
 #end[longOrDouble]
+        }
+
+        @Override
+        @ForceInline
+        public final $masktype$ laneIsValid() {
+            return ($masktype$) toBitsVector().compare(VectorOperators.GE, 0)
+                    .cast(vspecies());
+        }
+
+        @ForceInline
+        @Override
+        public final $shuffletype$ rearrange(VectorShuffle<$Boxtype$> shuffle) {
+            return ($shuffletype$) toBitsVector().rearrange((($shuffletype$) shuffle)
+                    .cast($Bitstype$Vector.SPECIES_$BITS$))
+                    .toShuffle(vspecies(), false);
+        }
+
+        @ForceInline
+        @Override
+        public final $shuffletype$ wrapIndexes() {
+            $bitsvectortype$ v = toBitsVector();
+            if ((length() & (length() - 1)) == 0) {
+                v = ($bitsvectortype$) v.lanewise(VectorOperators.AND, length() - 1);
+            } else {
+                v = ($bitsvectortype$) v.blend(v.lanewise(VectorOperators.ADD, length()),
+                            v.compare(VectorOperators.LT, 0));
+            }
+            return ($shuffletype$) v.toShuffle(vspecies(), false);
         }
 
         private static $bitstype$[] prepare(int[] indices, int offset) {

@@ -143,6 +143,12 @@ final class Float64Vector extends FloatVector {
 
     @Override
     @ForceInline
+    Float64Shuffle iotaShuffle(int start, int step, boolean wrap) {
+        return (Float64Shuffle) iotaShuffleTemplate(start, step, wrap);
+    }
+
+    @Override
+    @ForceInline
     Float64Shuffle shuffleFromArray(int[] indices, int i) { return new Float64Shuffle(indices, i); }
 
     @Override
@@ -331,9 +337,14 @@ final class Float64Vector extends FloatVector {
 
     @Override
     @ForceInline
-    final <F>
-    VectorShuffle<F> rawToShuffle(AbstractSpecies<F> dsp) {
-        return super.rawToShuffleTemplate(dsp);
+    final <F> VectorShuffle<F> bitsToShuffle(AbstractSpecies<F> dsp) {
+        throw new AssertionError();
+    }
+
+    @Override
+    @ForceInline
+    public final Float64Shuffle toShuffle() {
+        return (Float64Shuffle) toShuffle(vspecies(), false);
     }
 
     // Specialized unary testing
@@ -796,14 +807,19 @@ final class Float64Vector extends FloatVector {
 
         @Override
         @ForceInline
+        public Float64Vector toVector() {
+            return (Float64Vector) toBitsVector().castShape(vspecies(), 0);
+        }
+
+        @Override
+        @ForceInline
         Int64Vector toBitsVector() {
             return (Int64Vector) super.toBitsVectorTemplate();
         }
 
         @Override
-        @ForceInline
-        IntVector toBitsVector0() {
-            return Int64Vector.VSPECIES.dummyVector().vectorFactory(indices());
+        Int64Vector toBitsVector0() {
+            return ((Int64Vector) vspecies().asIntegral().dummyVector()).vectorFactory(indices());
         }
 
         @Override
@@ -816,6 +832,34 @@ final class Float64Vector extends FloatVector {
         @ForceInline
         public void intoArray(int[] a, int offset) {
             toBitsVector().intoArray(a, offset);
+        }
+
+        @Override
+        @ForceInline
+        public final Float64Mask laneIsValid() {
+            return (Float64Mask) toBitsVector().compare(VectorOperators.GE, 0)
+                    .cast(vspecies());
+        }
+
+        @ForceInline
+        @Override
+        public final Float64Shuffle rearrange(VectorShuffle<Float> shuffle) {
+            return (Float64Shuffle) toBitsVector().rearrange(((Float64Shuffle) shuffle)
+                    .cast(IntVector.SPECIES_64))
+                    .toShuffle(vspecies(), false);
+        }
+
+        @ForceInline
+        @Override
+        public final Float64Shuffle wrapIndexes() {
+            Int64Vector v = toBitsVector();
+            if ((length() & (length() - 1)) == 0) {
+                v = (Int64Vector) v.lanewise(VectorOperators.AND, length() - 1);
+            } else {
+                v = (Int64Vector) v.blend(v.lanewise(VectorOperators.ADD, length()),
+                            v.compare(VectorOperators.LT, 0));
+            }
+            return (Float64Shuffle) v.toShuffle(vspecies(), false);
         }
 
         private static int[] prepare(int[] indices, int offset) {

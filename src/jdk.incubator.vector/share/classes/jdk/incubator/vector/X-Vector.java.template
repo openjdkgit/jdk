@@ -2856,9 +2856,25 @@ public abstract class $abstractvectortype$ extends AbstractVector<$Boxtype$> {
         return r1.blend(r0, valid);
     }
 
+    @Override
+    @ForceInline
+    final <F> VectorShuffle<F> bitsToShuffle0(AbstractSpecies<F> dsp) {
+#if[FP]
+        throw new AssertionError();
+#else[FP]
+        $type$[] a = toArray();
+        int[] sa = new int[a.length];
+        for (int i = 0; i < a.length; i++) {
+            sa[i] = (int) a[i];
+        }
+        return VectorShuffle.fromArray(dsp, sa, 0);
+#end[FP]
+    }
+
     @ForceInline
     final <F>
     VectorShuffle<F> toShuffle(AbstractSpecies<F> dsp, boolean wrap) {
+        assert(dsp.elementSize() == vspecies().elementSize());
 #if[float]
         IntVector idx = convert(VectorOperators.F2I, 0).reinterpretAsInts();
 #end[float]
@@ -2874,18 +2890,7 @@ public abstract class $abstractvectortype$ extends AbstractVector<$Boxtype$> {
             VectorMask<$Boxbitstype$> inBound = wrapped.compare(VectorOperators.EQ, idx);
             wrapped = wrappedEx.blend(wrapped, inBound);
         }
-        return wrapped.rawToShuffle(dsp);
-    }
-
-    @ForceInline
-    final <F>
-    VectorShuffle<F> toShuffle0(AbstractSpecies<F> dsp) {
-        $type$[] a = toArray();
-        int[] sa = new int[a.length];
-        for (int i = 0; i < a.length; i++) {
-            sa[i] = (int) a[i];
-        }
-        return VectorShuffle.fromArray(dsp, sa, 0);
+        return wrapped.bitsToShuffle(dsp);
     }
 
     /**

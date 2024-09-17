@@ -194,11 +194,11 @@ abstract class AbstractVector<E> extends Vector<E> {
 
     abstract AbstractMask<E> maskFromArray(boolean[] bits);
 
-    abstract <F> VectorShuffle<F> rawToShuffle(AbstractSpecies<F> dsp);
+    abstract <F> VectorShuffle<F> bitsToShuffle(AbstractSpecies<F> dsp);
 
     /*package-private*/
     @ForceInline
-    final <F> VectorShuffle<F> rawToShuffleTemplate(AbstractSpecies<F> dsp) {
+    final <F> VectorShuffle<F> bitsToShuffleTemplate(AbstractSpecies<F> dsp) {
         Class<?> etype = vspecies().elementType();
         Class<?> dvtype = dsp.shuffleType();
         Class<?> dtype = dsp.asIntegral().elementType();
@@ -207,27 +207,19 @@ abstract class AbstractVector<E> extends Vector<E> {
                                      getClass(), etype, length(),
                                      dvtype, dtype, dlength,
                                      this, dsp,
-                                     AbstractVector::toShuffle0);
+                                     AbstractVector::bitsToShuffle0);
     }
 
-    abstract <F> VectorShuffle<F> toShuffle0(AbstractSpecies<F> dsp);
+    abstract <F> VectorShuffle<F> bitsToShuffle0(AbstractSpecies<F> dsp);
 
     abstract <F> VectorShuffle<F> toShuffle(AbstractSpecies<F> dsp, boolean wrap);
 
-    @ForceInline
-    public final
-    VectorShuffle<E> toShuffle() {
-        return toShuffle(vspecies(), false);
-    }
-
     abstract VectorShuffle<E> iotaShuffle();
+    
+    abstract VectorShuffle<E> iotaShuffle(int start, int step, boolean wrap);
 
     @ForceInline
-    final VectorShuffle<E> iotaShuffle(int start, int step, boolean wrap) {
-        if (start == 0 && step == 1) {
-            return iotaShuffle();
-        }
-
+    final VectorShuffle<E> iotaShuffleTemplate(int start, int step, boolean wrap) {
         if ((length() & (length() - 1)) != 0) {
             return wrap ? shuffleFromOp(i -> (VectorIntrinsics.wrapToRange(i * step + start, length())))
                         : shuffleFromOp(i -> i * step + start);

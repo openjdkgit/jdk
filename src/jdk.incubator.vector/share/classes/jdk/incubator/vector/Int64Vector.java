@@ -143,6 +143,12 @@ final class Int64Vector extends IntVector {
 
     @Override
     @ForceInline
+    Int64Shuffle iotaShuffle(int start, int step, boolean wrap) {
+        return (Int64Shuffle) iotaShuffleTemplate(start, step, wrap);
+    }
+
+    @Override
+    @ForceInline
     Int64Shuffle shuffleFromArray(int[] indices, int i) { return new Int64Shuffle(indices, i); }
 
     @Override
@@ -344,9 +350,14 @@ final class Int64Vector extends IntVector {
 
     @Override
     @ForceInline
-    final <F>
-    VectorShuffle<F> rawToShuffle(AbstractSpecies<F> dsp) {
-        return super.rawToShuffleTemplate(dsp);
+    final <F> VectorShuffle<F> bitsToShuffle(AbstractSpecies<F> dsp) {
+        return bitsToShuffleTemplate(dsp);
+    }
+
+    @Override
+    @ForceInline
+    public final Int64Shuffle toShuffle() {
+        return (Int64Shuffle) toShuffle(vspecies(), false);
     }
 
     // Specialized unary testing
@@ -807,14 +818,19 @@ final class Int64Vector extends IntVector {
 
         @Override
         @ForceInline
+        public Int64Vector toVector() {
+            return toBitsVector();
+        }
+
+        @Override
+        @ForceInline
         Int64Vector toBitsVector() {
             return (Int64Vector) super.toBitsVectorTemplate();
         }
 
         @Override
-        @ForceInline
-        IntVector toBitsVector0() {
-            return Int64Vector.VSPECIES.dummyVector().vectorFactory(indices());
+        Int64Vector toBitsVector0() {
+            return ((Int64Vector) vspecies().asIntegral().dummyVector()).vectorFactory(indices());
         }
 
         @Override
@@ -827,6 +843,34 @@ final class Int64Vector extends IntVector {
         @ForceInline
         public void intoArray(int[] a, int offset) {
             toBitsVector().intoArray(a, offset);
+        }
+
+        @Override
+        @ForceInline
+        public final Int64Mask laneIsValid() {
+            return (Int64Mask) toBitsVector().compare(VectorOperators.GE, 0)
+                    .cast(vspecies());
+        }
+
+        @ForceInline
+        @Override
+        public final Int64Shuffle rearrange(VectorShuffle<Integer> shuffle) {
+            return (Int64Shuffle) toBitsVector().rearrange(((Int64Shuffle) shuffle)
+                    .cast(IntVector.SPECIES_64))
+                    .toShuffle(vspecies(), false);
+        }
+
+        @ForceInline
+        @Override
+        public final Int64Shuffle wrapIndexes() {
+            Int64Vector v = toBitsVector();
+            if ((length() & (length() - 1)) == 0) {
+                v = (Int64Vector) v.lanewise(VectorOperators.AND, length() - 1);
+            } else {
+                v = (Int64Vector) v.blend(v.lanewise(VectorOperators.ADD, length()),
+                            v.compare(VectorOperators.LT, 0));
+            }
+            return (Int64Shuffle) v.toShuffle(vspecies(), false);
         }
 
         private static int[] prepare(int[] indices, int offset) {
