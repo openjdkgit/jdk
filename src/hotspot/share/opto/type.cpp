@@ -701,7 +701,7 @@ void Type::Initialize_shared(Compile* current) {
   }
 
   const Type** elem_types = static_cast<const Type**>(Compile::current()->type_arena()->AmallocWords(sizeof(Type*) * MaxVectorSize));
-  for (uint i = 0; i < MaxVectorSize; i++) {
+  for (uint i = 0; i < uint(MaxVectorSize); i++) {
     elem_types[i] = TypeInt::BOOL;
   }
   TypeVect::VECTMASK = (TypeVect*)(new TypeVectMask(T_BYTE, MaxVectorSize, elem_types))->hashcons();
