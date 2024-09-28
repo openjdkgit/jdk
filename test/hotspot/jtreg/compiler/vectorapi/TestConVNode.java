@@ -64,6 +64,9 @@ public class TestConVNode {
     private static final int[] A4;
     private static final int[] A8;
 
+    private static final VectorMask<Byte> M;
+    private static final boolean[] AZ;
+
     static {
         Random r = Utils.getRandomInstance();
         AB = new byte[ByteVector.SPECIES_PREFERRED.length()];
@@ -130,12 +133,19 @@ public class TestConVNode {
         V2 = IntVector.fromArray(IntVector.SPECIES_PREFERRED, A2, 0);
         V4 = IntVector.fromArray(IntVector.SPECIES_PREFERRED, A4, 0);
         V8 = IntVector.fromArray(IntVector.SPECIES_PREFERRED, A8, 0);
+
+        AZ = new boolean[ByteVector.SPECIES_PREFERRED.length()];
+        for (int i = 0; i < AZ.length; i++) {
+            AZ[i] = r.nextBoolean();
+        }
+        M = VectorMask.fromArray(ByteVector.SPECIES_PREFERRED, AZ, 0);
     }
 
     @Run(test = {"testByteVector", "testShortVector", "testIntVector",
             "testLongVector", "testFloatVector", "testDoubleVector",
             "testReplicate1IntVector", "testReplicate2IntVector",
-            "testReplicate4IntVector", "testReplicate8IntVector"})
+            "testReplicate4IntVector", "testReplicate8IntVector",
+            "testByteMask"})
     public void run() {
         byte[] rb = new byte[VB.length()];
         testByteVector(rb);
@@ -173,6 +183,9 @@ public class TestConVNode {
         int[] r8 = new int[V8.length()];
         testReplicate8IntVector(r8);
         Asserts.assertTrue(Arrays.equals(A8, r8));
+        boolean[] rz = new boolean[M.length()];
+        testByteMask(rz);
+        Asserts.assertTrue(Arrays.equals(AZ, rz));
     }
 
     @Test
@@ -233,6 +246,12 @@ public class TestConVNode {
     @IR(counts = {IRNode.CON_V, "1"}, applyIfPlatform = {"x64", "true"})
     public void testReplicate8IntVector(int[] r) {
         V8.intoArray(r, 0);
+    }
+
+    @Test
+    @IR(counts = {IRNode.CON_V, "1"}, applyIfPlatform = {"x64", "true"})
+    public void testByteMask(boolean[] r) {
+        M.intoArray(r, 0);
     }
 
     public static void main(String[] args) {
