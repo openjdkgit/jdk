@@ -23,9 +23,9 @@
  */
 
 #include "precompiled.hpp"
+#include "cds/aotConstantPoolResolver.hpp"
 #include "cds/archiveUtils.hpp"
 #include "cds/classListParser.hpp"
-#include "cds/classPrelinker.hpp"
 #include "cds/lambdaFormInvokers.hpp"
 #include "cds/metaspaceShared.hpp"
 #include "cds/unregisteredClasses.hpp"
@@ -848,9 +848,9 @@ void ClassListParser::parse_constant_pool_tag() {
   }
 
   if (preresolve_class) {
-    ClassPrelinker::preresolve_class_cp_entries(THREAD, ik, &preresolve_list);
+    AOTConstantPoolResolver::preresolve_class_cp_entries(THREAD, ik, &preresolve_list);
   }
   if (preresolve_fmi) {
-    ClassPrelinker::preresolve_field_and_method_cp_entries(THREAD, ik, &preresolve_list);
+    AOTConstantPoolResolver::preresolve_field_and_method_cp_entries(THREAD, ik, &preresolve_list);
   }
 }
