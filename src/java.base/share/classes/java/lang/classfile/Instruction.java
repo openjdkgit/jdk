@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -51,14 +51,12 @@ import java.lang.classfile.instruction.StoreInstruction;
 import java.lang.classfile.instruction.TableSwitchInstruction;
 import java.lang.classfile.instruction.ThrowInstruction;
 import java.lang.classfile.instruction.TypeCheckInstruction;
-import jdk.internal.javac.PreviewFeature;
 
 /**
  * Models an executable instruction in a method body.
  *
- * @since 22
+ * @since 24
  */
-@PreviewFeature(feature = PreviewFeature.Feature.CLASSFILE_API)
 public sealed interface Instruction extends CodeElement
         permits ArrayLoadInstruction, ArrayStoreInstruction, BranchInstruction,
                 ConstantInstruction, ConvertInstruction, DiscontinuedInstruction,

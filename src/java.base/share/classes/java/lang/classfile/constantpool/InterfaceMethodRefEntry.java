@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,7 +26,6 @@ package java.lang.classfile.constantpool;
 
 import jdk.internal.classfile.impl.AbstractPoolEntry;
 import jdk.internal.classfile.impl.Util;
-import jdk.internal.javac.PreviewFeature;
 import java.lang.constant.MethodTypeDesc;
 
 /**
@@ -34,9 +33,8 @@ import java.lang.constant.MethodTypeDesc;
  * classfile.
  * @jvms 4.4.2 The CONSTANT_Fieldref_info, CONSTANT_Methodref_info, and CONSTANT_InterfaceMethodref_info Structures
  *
- * @since 22
+ * @since 24
  */
-@PreviewFeature(feature = PreviewFeature.Feature.CLASSFILE_API)
 public sealed interface InterfaceMethodRefEntry
         extends MemberRefEntry
         permits AbstractPoolEntry.InterfaceMethodRefEntryImpl {

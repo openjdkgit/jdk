@@ -88,7 +88,6 @@ import static java.util.Objects.requireNonNull;
 import static jdk.internal.classfile.impl.BytecodeHelpers.handleDescToHandleInfo;
 
 import jdk.internal.classfile.impl.TransformImpl;
-import jdk.internal.javac.PreviewFeature;
 
 /**
  * A builder for code attributes (method bodies).  Builders are not created
@@ -121,9 +120,8 @@ import jdk.internal.javac.PreviewFeature;
  *
  * @see CodeTransform
  *
- * @since 22
+ * @since 24
  */
-@PreviewFeature(feature = PreviewFeature.Feature.CLASSFILE_API)
 public sealed interface CodeBuilder
         extends ClassFileBuilder<CodeElement, CodeBuilder>
         permits CodeBuilder.BlockCodeBuilder, ChainedCodeBuilder, TerminalCodeBuilder, NonterminalCodeBuilder {
@@ -195,9 +193,8 @@ public sealed interface CodeBuilder
     /**
      * A builder for blocks of code.
      *
-     * @since 22
+     * @since 24
      */
-    @PreviewFeature(feature = PreviewFeature.Feature.CLASSFILE_API)
     sealed interface BlockCodeBuilder extends CodeBuilder
             permits BlockCodeBuilderImpl {
         /**
@@ -336,9 +333,8 @@ public sealed interface CodeBuilder
      *
      * @see #trying
      *
-     * @since 22
+     * @since 24
      */
-    @PreviewFeature(feature = PreviewFeature.Feature.CLASSFILE_API)
     sealed interface CatchBuilder permits CatchBuilderImpl {
         /**
          * Adds a catch block that catches an exception of the given type.
@@ -429,7 +425,6 @@ public sealed interface CodeBuilder
      * @param tk the load type
      * @param slot the local variable slot
      * @return this builder
-     * @since 23
      */
     default CodeBuilder loadLocal(TypeKind tk, int slot) {
         return with(LoadInstruction.of(tk, slot));
@@ -440,7 +435,6 @@ public sealed interface CodeBuilder
      * @param tk the store type
      * @param slot the local variable slot
      * @return this builder
-     * @since 23
      */
     default CodeBuilder storeLocal(TypeKind tk, int slot) {
         return with(StoreInstruction.of(tk, slot));
@@ -452,7 +446,6 @@ public sealed interface CodeBuilder
      * @param op the branch opcode
      * @param target the branch target
      * @return this builder
-     * @since 23
      */
     default CodeBuilder branch(Opcode op, Label target) {
         return with(BranchInstruction.of(op, target));
@@ -462,7 +455,6 @@ public sealed interface CodeBuilder
      * Generate return instruction
      * @param tk the return type
      * @return this builder
-     * @since 23
      */
     default CodeBuilder return_(TypeKind tk) {
         return with(ReturnInstruction.of(tk));
@@ -474,7 +466,6 @@ public sealed interface CodeBuilder
      * @param opcode the field access opcode
      * @param ref the field reference
      * @return this builder
-     * @since 23
      */
     default CodeBuilder fieldAccess(Opcode opcode, FieldRefEntry ref) {
         return with(FieldInstruction.of(opcode, ref));
@@ -488,7 +479,6 @@ public sealed interface CodeBuilder
      * @param name the field name
      * @param type the field type
      * @return this builder
-     * @since 23
      */
     default CodeBuilder fieldAccess(Opcode opcode, ClassDesc owner, String name, ClassDesc type) {
         return fieldAccess(opcode, constantPool().fieldRefEntry(owner, name, type));
@@ -500,7 +490,6 @@ public sealed interface CodeBuilder
      * @param opcode the invoke opcode
      * @param ref the interface method or method reference
      * @return this builder
-     * @since 23
      */
     default CodeBuilder invoke(Opcode opcode, MemberRefEntry ref) {
         return with(InvokeInstruction.of(opcode, ref));
@@ -515,7 +504,6 @@ public sealed interface CodeBuilder
      * @param desc the method type
      * @param isInterface the interface method invocation indication
      * @return this builder
-     * @since 23
      */
     default CodeBuilder invoke(Opcode opcode, ClassDesc owner, String name, MethodTypeDesc desc, boolean isInterface) {
         return invoke(opcode,
@@ -527,7 +515,6 @@ public sealed interface CodeBuilder
      * Generate an instruction to load from an array
      * @param tk the array element type
      * @return this builder
-     * @since 23
      */
     default CodeBuilder arrayLoad(TypeKind tk) {
         Opcode opcode = BytecodeHelpers.arrayLoadOpcode(tk);
@@ -538,7 +525,6 @@ public sealed interface CodeBuilder
      * Generate an instruction to store into an array
      * @param tk the array element type
      * @return this builder
-     * @since 23
      */
     default CodeBuilder arrayStore(TypeKind tk) {
         Opcode opcode = BytecodeHelpers.arrayStoreOpcode(tk);
@@ -552,7 +538,6 @@ public sealed interface CodeBuilder
      * @return this builder
      * @throws IllegalArgumentException for conversions of {@link TypeKind#VOID void} or
      *         {@link TypeKind#REFERENCE reference}
-     * @since 23
      */
     default CodeBuilder conversion(TypeKind fromType, TypeKind toType) {
         var computationalFrom = fromType.asLoadable();
@@ -608,7 +593,6 @@ public sealed interface CodeBuilder
      * Generate an instruction pushing a constant onto the operand stack
      * @param value the constant value
      * @return this builder
-     * @since 23
      */
     default CodeBuilder loadConstant(ConstantDesc value) {
         //avoid switch expressions here
@@ -1769,7 +1753,6 @@ public sealed interface CodeBuilder
      *
      * @param target the target type
      * @return this builder
-     * @since 23
      */
     default CodeBuilder instanceOf(ClassEntry target) {
         return with(TypeCheckInstruction.of(Opcode.INSTANCEOF, target));
@@ -1785,7 +1768,6 @@ public sealed interface CodeBuilder
      * @param target the target type
      * @return this builder
      * @throws IllegalArgumentException if {@code target} represents a primitive type
-     * @since 23
      */
     default CodeBuilder instanceOf(ClassDesc target) {
         return instanceOf(constantPool().classEntry(target));
