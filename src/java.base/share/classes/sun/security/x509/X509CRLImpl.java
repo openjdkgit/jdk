@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2023, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -280,13 +280,16 @@ public class X509CRLImpl extends X509CRL implements DerEncoder {
          *   prevCertIssuer if it does not exist
          */
         private X500Principal getCertIssuer(X509CRLEntryImpl entry,
-                                            X500Principal prevCertIssuer) {
+                X500Principal prevCertIssuer) throws CRLException {
 
             CertificateIssuerExtension ciExt =
                     entry.getCertificateIssuerExtension();
             if (ciExt != null) {
                 GeneralNames names = ciExt.getNames();
-                X500Name issuerDN = (X500Name) names.get(0).getName();
+                if (!(names.get(0).getName() instanceof X500Name issuerDN)) {
+                    throw new CRLException("Parsing error: "
+                            + "issuer is not an X.500 DN");
+                }
                 return issuerDN.asX500Principal();
             } else {
                 return prevCertIssuer;
