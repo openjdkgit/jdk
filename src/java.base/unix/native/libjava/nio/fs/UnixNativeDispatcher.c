@@ -218,7 +218,9 @@ static unlinkat_func* my_unlinkat_func = NULL;
 static renameat_func* my_renameat_func = NULL;
 static futimesat_func* my_futimesat_func = NULL;
 static futimens_func* my_futimens_func = NULL;
+#ifndef _ALLBSD_SOURCE
 static lutimes_func* my_lutimes_func = NULL;
+#endif
 static fdopendir_func* my_fdopendir_func = NULL;
 #if defined(__linux__)
 static statx_func* my_statx_func = NULL;
