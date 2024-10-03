@@ -405,6 +405,76 @@ TEST_VM(os, jio_snprintf) {
   test_snprintf(jio_snprintf, false);
 }
 
+#ifndef MAX_PATH
+#define MAX_PATH    (2 * K)
+#endif
+
+TEST_VM(os, realpath) {
+  /* POSIX requires that the file exists, Windows doesn't */
+  static const char* nosuchpath = "/1234567890123456789";
+  static const char* tmppath = "/tmp";
+
+  char buffer[MAX_PATH];
+
+  errno = 0;
+  const char* returnedBuffer = os::realpath(nosuchpath, buffer, sizeof(nosuchpath) - 2);
+  /* Returns ENOENT on Linux, ENAMETOOLONG on Windows */
+  EXPECT_TRUE(returnedBuffer == nullptr);
+#if defined(_WINDOWS)
+  EXPECT_TRUE(errno == ENAMETOOLONG);
+#else
+  EXPECT_TRUE(errno == ENOENT);
+#endif
+
+  errno = 0;
+  returnedBuffer = os::realpath(nosuchpath, buffer, sizeof(nosuchpath) + 3);
+  /* Returns ENOENT on Linux, 0 on Windows */
+#if defined(_WINDOWS)
+  EXPECT_TRUE(returnedBuffer == buffer);
+  EXPECT_TRUE(errno == 0);
+#else
+  EXPECT_TRUE(returnedBuffer == nullptr);
+  EXPECT_TRUE(errno == ENOENT);
+#endif
+
+  errno = 0;
+  returnedBuffer = os::realpath(tmppath, buffer, MAX_PATH);
+  EXPECT_TRUE(returnedBuffer != nullptr);
+
+  errno = 0;
+  returnedBuffer = os::realpath(tmppath, buffer, strlen(tmppath) + 3);
+  /* on MacOS, /tmp is a symlink to /private/tmp, so doesn't fit in a small buffer. */
+#if !defined(__APPLE__)
+  EXPECT_TRUE(returnedBuffer == buffer);
+#else
+  EXPECT_TRUE(returnedBuffer == nullptr);
+  EXPECT_TRUE(errno == ENAMETOOLONG);
+#endif
+
+  errno = 0;
+  returnedBuffer = os::realpath(tmppath, buffer, strlen(tmppath) - 1);
+  EXPECT_TRUE(returnedBuffer == nullptr);
+  EXPECT_TRUE(errno == ENAMETOOLONG);
+
+  /* the following tests cause an assert in fastdebug mode */
+  DEBUG_ONLY(if (false)) {
+    errno = 0;
+    returnedBuffer = os::realpath(nullptr, buffer, sizeof(buffer));
+    EXPECT_TRUE(returnedBuffer == nullptr);
+    EXPECT_TRUE(errno == EINVAL);
+
+    errno = 0;
+    returnedBuffer = os::realpath(tmppath, buffer, sizeof(buffer));
+    EXPECT_TRUE(returnedBuffer == nullptr);
+    EXPECT_TRUE(errno == EINVAL);
+
+    errno = 0;
+    returnedBuffer = os::realpath(tmppath, buffer, 0);
+    EXPECT_TRUE(returnedBuffer == nullptr);
+    EXPECT_TRUE(errno == EINVAL);
+  }
+}
+
 #ifdef __APPLE__
 // Not all macOS versions can use os::reserve_memory (i.e. anon_mmap) API
 // to reserve executable memory, so before attempting to use it,
