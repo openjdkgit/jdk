@@ -35,6 +35,8 @@
 #include "cds/heapShared.hpp"
 #include "cds/metaspaceShared.hpp"
 #include "cds/regeneratedClasses.hpp"
+#include "classfile/classLoader.hpp"
+#include "classfile/classLoaderExt.hpp"
 #include "classfile/classLoaderDataShared.hpp"
 #include "classfile/javaClasses.hpp"
 #include "classfile/symbolTable.hpp"
@@ -228,6 +230,9 @@ bool ArchiveBuilder::gather_klass_and_symbol(MetaspaceClosure::Ref* ref, bool re
     assert(klass->is_klass(), "must be");
     if (!is_excluded(klass)) {
       _klasses->append(klass);
+      if (klass->is_hidden() && klass->is_instance_klass()) {
+        update_hidden_class_loader_type(InstanceKlass::cast(klass));
+      }
     }
     // See RunTimeClassInfo::get_for()
     _estimated_metaspaceobj_bytes += align_up(BytesPerWord, SharedSpaceObjectAlignment);
@@ -287,6 +292,47 @@ void ArchiveBuilder::gather_klasses_and_symbols() {
 
   AOTClassLinker::add_candidates();
 }
+
+#if INCLUDE_CDS_JAVA_HEAP
+
+void ArchiveBuilder::update_hidden_class_loader_type(InstanceKlass* ik) {
+  assert(ik->is_hidden(), "must be");
+
+  s2 classloader_type;
+  if (HeapShared::is_lambda_form_klass(ik)) {
+    assert(CDSConfig::is_dumping_invokedynamic(), "lambda form classes are archived only if CDSConfig::is_dumping_invokedynamic() is true");
+    classloader_type = ClassLoader::BOOT_LOADER;
+  } else {
+    assert(SystemDictionaryShared::should_hidden_class_be_archived(ik), "must be");
+    oop loader = ik->class_loader();
+
+    if (loader == nullptr) {
+      classloader_type = ClassLoader::BOOT_LOADER;
+    } else if (SystemDictionary::is_platform_class_loader(loader)) {
+      classloader_type = ClassLoader::PLATFORM_LOADER;
+    } else {
+      assert(SystemDictionary::is_system_class_loader(loader), "must be");
+      classloader_type = ClassLoader::APP_LOADER;
+    }
+  }
+  ik->set_shared_class_loader_type(classloader_type);
+
+  if (HeapShared::is_lambda_proxy_klass(ik)) {
+    InstanceKlass* nest_host = ik->nest_host_not_null();
+    ik->set_shared_classpath_index(nest_host->shared_classpath_index());
+  } else if (HeapShared::is_lambda_form_klass(ik)) {
+    ik->set_shared_classpath_index(0);
+  } else {
+    // Generated invoker classes.
+    if (classloader_type == ClassLoader::APP_LOADER) {
+      ik->set_shared_classpath_index(ClassLoaderExt::app_class_paths_start_index());
+    } else {
+      ik->set_shared_classpath_index(0);
+    }
+  }
+}
+
+#endif //INCLUDE_CDS_JAVA_HEAP
 
 int ArchiveBuilder::compare_symbols_by_address(Symbol** a, Symbol** b) {
   if (a[0] < b[0]) {
@@ -782,6 +828,7 @@ void ArchiveBuilder::make_klasses_shareable() {
   DECLARE_INSTANCE_KLASS_COUNTER(num_vm_klasses);
   DECLARE_INSTANCE_KLASS_COUNTER(num_platform_klasses);
   DECLARE_INSTANCE_KLASS_COUNTER(num_app_klasses);
+  DECLARE_INSTANCE_KLASS_COUNTER(num_old_klasses);
   DECLARE_INSTANCE_KLASS_COUNTER(num_hidden_klasses);
   DECLARE_INSTANCE_KLASS_COUNTER(num_enum_klasses);
   DECLARE_INSTANCE_KLASS_COUNTER(num_unregistered_klasses);
@@ -809,6 +856,7 @@ void ArchiveBuilder::make_klasses_shareable() {
     const char* unlinked = "";
     const char* kind = "";
     const char* hidden = "";
+    const char* old = "";
     const char* generated = "";
     const char* aotlinked_msg = "";
     const char* inited_msg = "";
@@ -891,6 +939,11 @@ void ArchiveBuilder::make_klasses_shareable() {
         ADD_COUNT(num_enum_klasses);
       }
 
+      if (!ik->can_be_verified_at_dumptime()) {
+        ADD_COUNT(num_old_klasses);
+        old = " old";
+      }
+
       if (ik->is_generated_shared_class()) {
         generated = " generated";
       }
@@ -907,9 +960,9 @@ void ArchiveBuilder::make_klasses_shareable() {
 
     if (log_is_enabled(Debug, cds, class)) {
       ResourceMark rm;
-      log_debug(cds, class)("klasses[%5d] = " PTR_FORMAT " %-5s %s%s%s%s%s%s%s", i,
+      log_debug(cds, class)("klasses[%5d] = " PTR_FORMAT " %-5s %s%s%s%s%s%s%s%s", i,
                             p2i(to_requested(k)), type, k->external_name(),
-                            kind, hidden, unlinked, generated, aotlinked_msg, inited_msg);
+                            kind, hidden, old, unlinked, generated, aotlinked_msg, inited_msg);
     }
   }
 
@@ -925,6 +978,7 @@ void ArchiveBuilder::make_klasses_shareable() {
   log_info(cds)("      unregistered     " STATS_FORMAT, STATS_PARAMS(unregistered_klasses));
   log_info(cds)("      (enum)           " STATS_FORMAT, STATS_PARAMS(enum_klasses));
   log_info(cds)("      (hidden)         " STATS_FORMAT, STATS_PARAMS(hidden_klasses));
+  log_info(cds)("      (old)            " STATS_FORMAT, STATS_PARAMS(old_klasses));
   log_info(cds)("      (unlinked)       = %5d, boot = %d, plat = %d, app = %d, unreg = %d",
                 num_unlinked_klasses, boot_unlinked, platform_unlinked, app_unlinked, unreg_unlinked);
   log_info(cds)("    obj array classes  = %5d", num_obj_array_klasses);
