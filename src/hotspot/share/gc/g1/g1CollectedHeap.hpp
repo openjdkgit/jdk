@@ -86,8 +86,8 @@ class ReferenceProcessor;
 class STWGCTimer;
 class WorkerThreads;
 
-typedef OverflowTaskQueue<ScannerTask, mtGC>           G1ScannerTasksQueue;
-typedef GenericTaskQueueSet<G1ScannerTasksQueue, mtGC> G1ScannerTasksQueueSet;
+typedef PartialArraySupportTaskQueue<ScannerTask, mtGC>            G1ScannerTasksQueue;
+typedef PartialArraySupportTaskQueueSet<G1ScannerTasksQueue, mtGC> G1ScannerTasksQueueSet;
 
 typedef int RegionIdx_t;   // needs to hold [ 0..max_reserved_regions() )
 typedef int CardIdx_t;     // needs to hold [ 0..CardsPerRegion )
