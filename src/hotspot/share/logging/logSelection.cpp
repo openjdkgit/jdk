@@ -69,6 +69,26 @@ bool LogSelection::operator!=(const LogSelection& ref) const {
   return !operator==(ref);
 }
 
+bool LogSelection::superset_of(const LogSelection& other) const {
+  // Every set contains the empty set, so if other is empty we return true
+  if (other._tags[0] == LogTag::__NO_TAG) return true;
+
+  bool match;
+  for (size_t i = 0; i < other.ntags(); ++i) {
+    match = false;
+    for (size_t j = 0; j < _ntags; ++j) {
+      if (other._tags[i] == _tags[j]) {
+        match = true;
+        break;
+      }
+    }
+
+    if (!match) return false;
+  }
+
+  return true;
+}
+
 static LogSelection parse_internal(char *str, outputStream* errstream) {
   // Parse the level, if specified
   LogLevelType level = LogLevel::Unspecified;

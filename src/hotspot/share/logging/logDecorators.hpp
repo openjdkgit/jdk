@@ -25,6 +25,7 @@
 #define SHARE_LOGGING_LOGDECORATORS_HPP
 
 #include "utilities/globalDefinitions.hpp"
+#include "logging/logSelection.hpp"
 
 class outputStream;
 
@@ -59,33 +60,62 @@ class outputStream;
 // declared above. For example, logging with 'uptime, level, tags' decorators results in:
 // [0,943s][info   ][logging] message.
 class LogDecorators {
+  friend class TestLogDecorators;
  public:
   enum Decorator {
 #define DECORATOR(name, abbr) name##_decorator,
     DECORATOR_LIST
 #undef DECORATOR
     Count,
-    Invalid
+    Invalid,
+    NoDecorators
+  };
+
+  class DefaultDecorator {
+    friend class TestLogDecorators;
+    LogSelection _selection;
+    uint         _mask;
+
+    DefaultDecorator() : _selection(LogSelection::Invalid), _mask(0) {}
+
+  public:
+    template<typename... Tags>
+    DefaultDecorator(LogLevelType level, uint mask, LogTagType first, Tags... rest) : _selection(LogSelection::Invalid), _mask(mask) {
+      static_assert(1 + sizeof...(rest) <= LogTag::MaxTags + 1,
+                    "Too many tags specified!");
+
+      LogTagType tag_arr[LogTag::MaxTags + 1] = { first, rest... };
+
+      if (sizeof...(rest) == LogTag::MaxTags) {
+        assert(tag_arr[sizeof...(rest)] == LogTag::__NO_TAG,
+               "Too many tags specified! Can only have up to " SIZE_FORMAT " tags in a tag set.", LogTag::MaxTags);
+      }
+
+      _selection = LogSelection(tag_arr, false, level);
+    }
+
+    const LogSelection& selection() const { return _selection; }
+    uint mask()                     const { return _mask; }
   };
 
  private:
   uint _decorators;
   static const char* _name[][2];
-  static const uint DefaultDecoratorsMask = (1 << uptime_decorator) | (1 << level_decorator) | (1 << tags_decorator);
+  static const LogDecorators::DefaultDecorator default_decorators[];
+  static const size_t number_of_default_decorators;
 
   static uint mask(LogDecorators::Decorator decorator) {
     return 1 << decorator;
   }
 
-  constexpr LogDecorators(uint mask) : _decorators(mask) {
-  }
 
  public:
   static const LogDecorators None;
   static const LogDecorators All;
 
-  LogDecorators() : _decorators(DefaultDecoratorsMask) {
-  }
+  constexpr LogDecorators(uint mask) : _decorators(mask) {}
+
+  LogDecorators() : _decorators(0) {}
 
   void clear() {
     _decorators = 0;
@@ -98,6 +128,21 @@ class LogDecorators {
   static const char* abbreviation(LogDecorators::Decorator decorator) {
     return _name[decorator][1];
   }
+
+  template<typename... Decorators>
+  static uint mask_from_decorators(LogDecorators::Decorator first, Decorators... rest) {
+    uint bitmask = 0;
+    LogDecorators::Decorator decorators[1 + sizeof...(rest)] = { first, rest... };
+    for (const LogDecorators::Decorator decorator : decorators) {
+      if (decorator == NoDecorators) return 0;
+      bitmask |= mask(decorator);
+    }
+    return bitmask;
+  }
+
+  // Check if we have some default decorators for a given LogSelection. If that is the case,
+  // the output parameter mask will contain the defaults-specified decorators mask
+  static void get_default_decorators(const LogSelection& selection, uint* mask, const DefaultDecorator* defaults = default_decorators, size_t defaults_count = number_of_default_decorators);
 
   static LogDecorators::Decorator from_string(const char* str);
 

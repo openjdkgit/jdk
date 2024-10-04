@@ -24,6 +24,13 @@
 #include "precompiled.hpp"
 #include "logging/logDecorators.hpp"
 #include "runtime/os.hpp"
+#include "logDecorators.hpp"
+
+const LogLevelType AnyLevel = LogLevelType::NotMentioned;
+const LogTagType AnyTag     = LogTagType::__NO_TAG;
+#define DEFAULT_DECORATORS \
+  DEFAULT_VALUE(mask_from_decorators(NoDecorators), AnyLevel, LOG_TAGS(jit, inlining)) \
+  DEFAULT_VALUE(mask_from_decorators(uptime_decorator, level_decorator, tags_decorator), AnyLevel, AnyTag)
 
 template <LogDecorators::Decorator d>
 struct AllBitmask {
@@ -45,6 +52,13 @@ const char* LogDecorators::_name[][2] = {
 #undef DECORATOR
 };
 
+const LogDecorators::DefaultDecorator LogDecorators::default_decorators[] = {
+#define DEFAULT_VALUE(mask, level, ...) LogDecorators::DefaultDecorator(level, mask, __VA_ARGS__),
+  DEFAULT_DECORATORS
+#undef DEFAULT_VALUE
+};
+const size_t LogDecorators::number_of_default_decorators = sizeof(default_decorators) / sizeof(LogDecorators::DefaultDecorator);
+
 LogDecorators::Decorator LogDecorators::from_string(const char* str) {
   for (size_t i = 0; i < Count; i++) {
     Decorator d = static_cast<Decorator>(i);
@@ -57,7 +71,7 @@ LogDecorators::Decorator LogDecorators::from_string(const char* str) {
 
 bool LogDecorators::parse(const char* decorator_args, outputStream* errstream) {
   if (decorator_args == nullptr || strlen(decorator_args) == 0) {
-    _decorators = DefaultDecoratorsMask;
+    // No decorators supplied, keep default decorators
     return true;
   }
 
@@ -92,4 +106,26 @@ bool LogDecorators::parse(const char* decorator_args, outputStream* errstream) {
     _decorators = tmp_decorators;
   }
   return result;
+}
+
+void LogDecorators::get_default_decorators(const LogSelection& selection, uint* mask, const DefaultDecorator* defaults, size_t defaults_count) {
+  size_t max_specificity = 0;
+  uint tmp_mask = 0;
+  for (size_t i = 0; i < defaults_count; ++i) {
+    auto current_default = defaults[i];
+    const bool ignore_level = current_default.selection().level() == AnyLevel;
+    const bool level_matches = ignore_level || selection.level() == current_default.selection().level();
+    if (!level_matches) continue;
+    if (!selection.superset_of(current_default.selection())) {
+      continue;
+    }
+    size_t specificity = current_default.selection().ntags();
+    if (specificity > max_specificity) {
+      tmp_mask = current_default.mask();
+      max_specificity = specificity;
+    } else if (specificity == max_specificity) {
+      tmp_mask |= current_default.mask();
+    }
+  }
+  *mask |= tmp_mask;
 }
