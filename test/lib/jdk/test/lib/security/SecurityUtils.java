@@ -24,6 +24,8 @@
 package jdk.test.lib.security;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.security.KeyStore;
 import java.security.Security;
 import java.util.Arrays;
@@ -123,6 +125,31 @@ public final class SecurityUtils {
            }
         }
         return false;
+    }
+
+    public static void inspectTlsBuffer(ByteBuffer flight) throws IOException {
+        if (flight == null || !flight.hasRemaining()) {
+            return;
+        }
+
+        ByteBuffer packet = flight.slice();
+        System.err.printf("---TLS Buffer Inspection. Bytes Remaining: %d---\n", packet.remaining());
+
+        for (int i = 1; packet.position() < packet.limit(); i++) {
+            byte contentType = packet.get();                   // pos: 0
+            byte majorVersion = packet.get();                  // pos: 1
+            byte minorVersion = packet.get();                  // pos: 2
+            int contentLen = getInt16(packet);                 // pos: 3, 4
+
+            System.err.printf("Flight %d: contentType: %d; majorVersion: %d; minorVersion: %d; contentLen: %d\n",
+                    i, (int) contentType, (int) majorVersion, (int) minorVersion, contentLen);
+
+            packet.position(packet.position() + contentLen);
+        }
+    }
+
+    public static int getInt16(ByteBuffer m) throws IOException {
+        return ((m.get() & 0xFF) << 8) | (m.get() & 0xFF);
     }
 
     private SecurityUtils() {}
